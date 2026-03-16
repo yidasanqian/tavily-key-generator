@@ -11,6 +11,11 @@ ENV/
 # 账号信息
 accounts.txt
 accounts.csv
+.env
+.env.local
+.cursorrules
+*.bak
+*.old
 
 # IDE
 .vscode/

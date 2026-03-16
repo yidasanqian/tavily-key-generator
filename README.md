@@ -1,170 +1,297 @@
-# Tavily 全自动注册工具
+# Tavily Key Register - Rebuilt Edition
 
-自动注册 Tavily 账号并获取 API Key，支持邮件验证的完整自动化工具。
+完全重构版 Tavily 自动注册工具。
 
-## ✨ 核心特性
+这版不再依赖早期那种不稳定的旧脚本链路，而是统一切到：
 
-- 🚀 **零配置启动** - 自动创建虚拟环境并安装依赖
-- 🔐 **本地 Turnstile Solver** - 免费稳定的验证码解决方案
-- 📧 **邮件自动验证** - 使用 Cloudflare Email Workers 自动接收验证邮件
-- 💾 **自动保存账号** - 格式兼容代理服务器直接导入
-- 🎨 **交互式界面** - 简洁友好的命令行交互
-- 🌐 **跨平台支持** - Windows / macOS / Linux
+- 本地真实浏览器注册
+- 本地 Turnstile Solver
+- 邮箱 API 自动收验证码
+- 获取 API Key 后立即真实调用 Tavily API 验证
 
-## 🚀 快速开始
+目标很直接：把 Tavily / Auth0 / Cloudflare 这条注册链路收口成一个真正可用、可并发、可后台运行的一键启动工具。
 
-### 一键运行
+## Features
+
+- 单启动台模式，不需要手动拼命令参数
+- 启动时自动检查虚拟环境、依赖和浏览器
+- 支持 Cloudflare 自定义域名邮箱 API
+- 支持 DuckMail API
+- 支持多域名配置，启动时可自由选择
+- 支持并发注册
+- 默认后台浏览器运行
+- 获取到 API Key 后自动真实验证
+- 可选自动上传到你的 key 池服务器
+- Windows / macOS / Linux 兼容启动
+
+## Quick Start
+
+### 1. Clone
+
+```bash
+git clone <your-repo-url>
+cd tavily-key-regedit
+```
+
+### 2. Configure
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env`，填好你的邮箱链路和可选上传配置。
+
+### 3. Run
+
+macOS / Linux:
 
 ```bash
 python3 run.py
 ```
 
-就这么简单！脚本会自动：
-1. 创建虚拟环境
-2. 安装所有依赖
-3. 下载浏览器
-4. 启动 Turnstile Solver
-5. 进入交互界面
+或：
 
-### 使用流程
-
-1. 运行 `python3 run.py`
-2. 选择 `1` 开始注册
-3. 输入注册数量（默认 5）
-4. 输入间隔秒数（默认 10）
-5. 选择是否上传到代理服务器
-6. 等待注册完成
-
-生成的账号保存在 `accounts.txt`，格式：
+```bash
+./start_auto.sh
 ```
+
+Windows:
+
+```bat
+start_auto.bat
+```
+
+## How It Works
+
+程序启动后会自动执行：
+
+1. 创建或复用 `venv`
+2. 安装 Python 依赖
+3. 安装 Camoufox / Playwright 浏览器依赖
+4. 读取 `.env`
+5. 检查邮箱 provider 配置
+6. 如果配置了多个域名，提示选择本轮使用的域名
+7. 输入注册数量
+8. 输入并发数
+9. 选择是否自动上传到服务器
+10. 自动启动本地 Solver
+11. 自动处理邮箱验证码与密码设置
+12. 遇到随机 challenge 时自动恢复
+13. 提取 API Key
+14. 真实调用 Tavily API 验证
+15. 保存到 `accounts.txt`
+16. 如已开启上传，则继续上传到服务器
+
+## Runtime Flow
+
+```text
+run.py
+  -> load .env
+  -> choose domain
+  -> input count / concurrency
+  -> choose upload or not
+  -> create mailbox
+  -> open Tavily signup page
+  -> solve Turnstile locally
+  -> receive email code
+  -> set password
+  -> recover random password-page challenge
+  -> enter Tavily dashboard
+  -> extract API key
+  -> verify API key with real API call
+  -> save / upload
+```
+
+## Configuration
+
+完整配置示例见 [`.env.example`](./.env.example)。
+
+### Cloudflare Mail API
+
+```env
+EMAIL_PROVIDER=cloudflare
+EMAIL_API_URL=https://your-mail-api.example.com
+EMAIL_API_TOKEN=replace-with-your-token
+EMAIL_DOMAIN=example.com
+EMAIL_DOMAINS=example.com,example.org
+```
+
+说明：
+
+- 单域名可只填 `EMAIL_DOMAIN`
+- 多域名可填 `EMAIL_DOMAINS`
+- 启动时会提示选择本轮使用的域名
+
+### DuckMail API
+
+```env
+EMAIL_PROVIDER=duckmail
+DUCKMAIL_API_URL=https://api.duckmail.sbs
+DUCKMAIL_API_KEY=
+DUCKMAIL_DOMAIN=
+DUCKMAIL_DOMAINS=
+```
+
+说明：
+
+- 可使用单域名或多域名配置
+- 如果你有 DuckMail 私有域名和 API Key，直接填入即可
+- 公开 DuckMail 域名可以测试收信链路，但不保证能通过 Tavily 风控
+
+### Upload to Your Server
+
+```env
+SERVER_URL=https://your-server.example.com
+SERVER_ADMIN_PASSWORD=replace-with-your-admin-password
+DEFAULT_UPLOAD=true
+```
+
+说明：
+
+- `DEFAULT_UPLOAD=true` 表示启动台默认开启自动上传
+- 真正是否上传，仍以本轮启动时的选择为准
+
+### Runtime Options
+
+```env
+DEFAULT_COUNT=1
+DEFAULT_CONCURRENCY=2
+DEFAULT_DELAY=10
+REGISTER_HEADLESS=true
+EMAIL_CODE_TIMEOUT=90
+API_KEY_TIMEOUT=20
+EMAIL_POLL_INTERVAL=3
+SOLVER_PORT=5073
+SOLVER_THREADS=1
+```
+
+说明：
+
+- `REGISTER_HEADLESS=true` 表示浏览器后台运行
+- `SOLVER_THREADS` 最终会自动取 `max(SOLVER_THREADS, 本轮并发数)`
+- 普通使用场景下不需要额外传命令参数
+
+## Output
+
+注册成功后，结果会写入：
+
+```text
+accounts.txt
+```
+
+格式：
+
+```text
 email,password,api_key
 email,password,api_key
-...
 ```
 
-## 📁 项目结构
+## Real-World Validation
 
+当前主线已经做过真实回归验证：
+
+- Cloudflare 邮箱链路可跑通完整注册
+- 邮箱验证码可自动读取
+- 获取到 API Key 后会立即做真实 API 调用验证
+- 并发注册已做过真实回归
+- 密码页随机 challenge 已补恢复逻辑，并已真测通过
+
+最近一次回归里，密码页两次都复现了“提交后未立即跳转”的随机 challenge 场景，恢复逻辑都成功拉回流程，并最终拿到可用 key。
+
+## Known Limitations
+
+### DuckMail Public Domains
+
+DuckMail 公开域名当前的状态是：
+
+- 创建邮箱可以
+- 接收 6 位验证码可以
+- 但 Tavily 在密码页可能直接风控拦截
+
+常见页面提示：
+
+```text
+Suspicious activity detected
 ```
-tavily-key-generator/
-├── run.py                  # 主程序（一键启动）
-├── tavily_core.py          # 注册核心逻辑
-├── api_solver.py           # Turnstile Solver
-├── config.py               # 配置文件
-├── requirements.txt        # Python 依赖
-├── browser_configs.py      # Solver 浏览器配置
-├── db_results.py           # Solver 数据库
-├── proxy/                  # 代理服务器（可选部署）
-│   ├── server.py
-│   ├── database.py
-│   ├── key_pool.py
-│   └── templates/
+
+如果你要跑通完整注册，建议优先使用：
+
+- Cloudflare 自定义域名邮箱
+- DuckMail 私有域名 + API Key
+
+### First Run on New Machine
+
+首次换机器运行时，建议先单账号跑通一遍，再开并发。
+
+因为首次运行会自动下载浏览器依赖，且不同机器的本地网络环境、代理环境、系统依赖可能不同。
+
+## Project Structure
+
+```text
+.
+├── run.py                    # 唯一推荐入口
+├── tavily_core.py            # 统一注册入口，内部转发到浏览器主链路
+├── tavily_browser_solver.py  # 浏览器注册主逻辑
+├── api_solver.py             # 本地 Turnstile Solver
+├── mail_provider.py          # 邮箱 provider 抽象
+├── config.py                 # .env / 环境变量读取
+├── start_auto.sh             # macOS / Linux 启动脚本
+├── start_auto.bat            # Windows 启动脚本
+├── proxy/                    # 可选的 Tavily key 池代理服务
 └── README.md
 ```
 
-## ⚙️ 配置说明
+## Module Notes
 
-编辑 `config.py` 自定义配置：
+仓库里有一些不是主入口、但仍然是运行时依赖的模块：
 
-```python
-# 邮箱配置（Cloudflare Email Workers）
-EMAIL_API_URL = "https://mail.nashome.me"
-EMAIL_API_TOKEN = "your-token"
-EMAIL_DOMAIN = "nashome.me"
+- `tavily_core.py`
+  现在是兼容层，负责把统一入口转发到浏览器注册主链路。
 
-# 代理服务器配置（上传目标）
-SERVER_URL = "https://tavily.hunters.works"
-SERVER_ADMIN_PASSWORD = "your-password"
+- `browser_configs.py`
+  `api_solver.py` 的浏览器配置辅助模块。
 
-# 默认参数
-DEFAULT_COUNT = 5      # 默认注册数量
-DEFAULT_DELAY = 10     # 每次注册间隔（秒）
-```
+- `db_results.py`
+  `api_solver.py` 的结果存储辅助模块。
 
-## 🔧 技术架构
+- `proxy/`
+  独立可选模块，用于把多个 Tavily key 做成统一代理池。
 
-- **HTTP 客户端**: curl_cffi（模拟真实浏览器 TLS 指纹）
-- **验证码破解**: 本地 Turnstile Solver（Camoufox 浏览器自动化）
-- **邮件接收**: Cloudflare Email Workers API
-- **认证流程**: Auth0 Universal Login
+不建议提交到 GitHub 的运行产物：
 
-## 📦 依赖说明
+- `.env`
+- `venv/`
+- `__pycache__/`
+- `accounts.txt`
 
-所有依赖会自动安装，无需手动操作：
+## Optional Proxy Service
 
-- `curl_cffi` - HTTP 客户端（绕过 Cloudflare）
-- `requests` - 标准 HTTP 库
-- `quart` - 异步 Web 框架（Solver）
-- `camoufox` - 反检测浏览器（Solver）
-- `patchright` - Playwright 分支（Solver）
-- `rich` - 终端美化（Solver）
+如果你希望把注册出来的 key 接成统一池子，可以使用 `proxy/`。
 
-## 🎯 代理服务器
-
-项目内置代理服务器（`proxy/` 目录），支持：
-- API Key 池管理
-- 自动轮询使用
-- 配额限制
-- 使用统计
-- Web 控制台
-
-### 部署代理服务器
+启动方式：
 
 ```bash
-cd proxy/
+cd proxy
 docker compose up -d
 ```
 
-访问 `http://localhost:9874` 进入管理控制台。
+详细说明见 [`proxy/README.md`](./proxy/README.md)。
 
-### 批量导入 API Key
+## Recommended Usage
 
-在控制台中选择"批量导入"，粘贴 `accounts.txt` 内容即可。
+如果你只是想批量拿 key，最简单的使用方式就是：
 
-## ⚠️ 注意事项
+1. 配好 `.env`
+2. 运行 `python3 run.py`
+3. 选择域名
+4. 输入注册数量
+5. 输入并发数
+6. 看 `accounts.txt`
 
-- 首次运行会下载 Camoufox 浏览器（约 200MB）
-- Solver 启动需要 10-15 秒初始化时间
-- 每个 API Key 有 1000 次免费调用额度（需要邮件验证激活）
-- 建议批量注册时设置 10-15 秒延迟
-- 邮件验证最多等待 120 秒
+如果你有自己的 key 池服务器，再把自动上传或者 `proxy/` 接上即可。
 
-## 🐛 故障排查
+## Disclaimer
 
-**Solver 无法启动**：
-```bash
-# 检查端口占用
-lsof -i :5072
+本项目仅供自动化测试、研究和个人学习使用。
 
-# 手动清理进程
-kill -9 $(lsof -ti :5072)
-```
-
-**注册失败**：
-- 确认 Solver 正在运行（会显示"✅ Solver 已启动"）
-- 检查网络连接
-- 确认邮箱 API Token 有效
-
-**邮件验证超时**：
-- 检查 `config.py` 中的 `EMAIL_API_TOKEN` 是否正确
-- 访问 https://mail.nashome.me 测试邮箱服务是否正常
-- 增加等待时间（修改 `tavily_core.py` 中的 `timeout` 参数）
-
-**虚拟环境问题**：
-```bash
-# 删除虚拟环境重新创建
-rm -rf venv
-python3 run.py
-```
-
-## 📄 输出文件
-
-- `accounts.txt` - 账号信息（email,password,api_key）
-- `venv/` - 虚拟环境（自动创建，已加入 .gitignore）
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📜 许可证
-
-MIT License
+请自行评估目标站点的服务条款、风控策略和账号使用风险。
