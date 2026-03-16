@@ -16,6 +16,10 @@ accounts.csv
 .cursorrules
 *.bak
 *.old
+*.db
+*.sqlite
+*.sqlite3
+proxy/data/
 
 # IDE
 .vscode/
