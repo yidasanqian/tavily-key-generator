@@ -28,6 +28,25 @@ def extract_signup_url(html):
         return None
     return f"https://auth.tavily.com{match.group(1)}"
 
+
+def has_unified_identifier_entry(page):
+    """新版 Tavily 已改成登录/注册合一入口，当前页可直接作为注册起点。"""
+    selectors = [
+        'input[name="username"]',
+        'input[name="email"]',
+        'input[type="email"]',
+    ]
+    has_email_input = any(page.query_selector(selector) for selector in selectors)
+    has_continue = any(
+        page.query_selector(selector)
+        for selector in (
+            'button[type="submit"]',
+            'button:has-text("Continue")',
+            'button:has-text("Sign Up")',
+        )
+    )
+    return has_email_input and has_continue
+
 def fill_first_input(page, selectors, value):
     """填充第一个存在的输入框"""
     for selector in selectors:
@@ -473,18 +492,20 @@ def register_with_browser_solver(email, password):
         with Camoufox(headless=REGISTER_HEADLESS) as browser:
             page = browser.new_page()
 
-            # 1. 访问登录页并提取注册链接
+            # 1. 访问 Tavily 统一登录/注册入口
             page.goto("https://app.tavily.com/sign-in", wait_until="networkidle", timeout=30000)
             time.sleep(2)
 
             signup_url = extract_signup_url(page.content())
-            if not signup_url:
-                print("❌ 未找到注册入口")
+            if signup_url:
+                print("🧭 进入注册页...")
+                page.goto(signup_url, wait_until="networkidle", timeout=30000)
+                time.sleep(2)
+            elif has_unified_identifier_entry(page):
+                print("ℹ️  检测到 Tavily 新版登录/注册合一入口，直接复用当前页面...")
+            else:
+                print(f"❌ 未找到注册入口: {page.url}")
                 return None
-
-            print("🧭 进入注册页...")
-            page.goto(signup_url, wait_until="networkidle", timeout=30000)
-            time.sleep(2)
 
             email_selector = fill_first_input(page, ['input[name="email"]', 'input[name="username"]'], email)
             if not email_selector:
